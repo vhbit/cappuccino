@@ -78,7 +78,7 @@ var CPButtonBezelStyleStateMap = [CPDictionary dictionaryWithObjects:[CPButtonSt
                                                              forKeys:[CPRoundedBezelStyle, CPRoundRectBezelStyle]];
 
 
-CPButtonDefaultHeight = 24.0;
+CPButtonDefaultHeight = 25.0;
 CPButtonImageOffset   = 3.0;
 
 /*!
