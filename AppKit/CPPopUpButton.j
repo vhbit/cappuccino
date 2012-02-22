@@ -776,6 +776,16 @@ CPPopUpButtonStatePullsDown = CPThemeState("pulls-down");
             [[self selectedItem] setState:CPOffState];
 }
 
+- (void)_reverseSetBinding
+{
+    var binderClass = [[self class] _binderClassForBinding:CPSelectedIndexBinding],
+        theBinding = [binderClass getBinding:CPSelectedIndexBinding forObject:self];
+
+    [theBinding reverseSetValueFor:@"objectValue"];
+
+    [super _reverseSetBinding];
+}
+
 @end
 
 var DEPRECATED_CPPopUpButtonMenuKey             = @"CPPopUpButtonMenuKey",
@@ -816,6 +826,118 @@ var DEPRECATED_CPPopUpButtonMenuKey             = @"CPPopUpButtonMenuKey",
     }
 
     return self;
+}
+
+@end
+
+@implementation CPPopUpButton(Bindings)
+
+- (void)setContent:(CPArray)content
+{
+    CPLog("Setting content of popup");
+    //[self reloadData];
+}
+
+- (void)setContentValues:(id)sender
+{
+    CPLog("Setting content values");
+}
+
++ (id)_binderClassForBinding:(CPString)aBinding
+{
+    if (aBinding == "content")
+        return [CPPopUpContentBinder class];
+    if (aBinding == "contentValues")
+        return [CPPopUpContentBinder class];
+
+    return [super _binderClassForBinding:aBinding];
+}
+
+- (void)reloadMenuItems
+{
+    var contentBindingInfo = [self infoForBinding:@"content"],
+        contentValuesBindingInfo = [self infoForBinding:"contentValues"],
+        numberOfItems = 0;
+
+    if (contentBindingInfo)
+    {
+        var keyPath = [contentBindingInfo objectForKey:CPObservedKeyPathKey],
+            arrayController = [[contentBindingInfo objectForKey:CPObservedObjectKey] valueForKeyPath:keyPath];
+
+        numberOfItems = [arrayController count];
+
+        var oldSelectedObject = [[self selectedItem] representedObject],
+            oldSelectedTag = [[self selectedItem] tag];
+
+        while ([[self menu] countOfItems] > numberOfItems)
+            [[self menu] removeItemAtIndex:0];
+        while ([[self menu] countOfItems] < numberOfItems)
+            [[self menu] addItemWithTitle:"" action:nil keyEquivalent:nil];
+
+//////////
+        var valueDestination = [contentValuesBindingInfo objectForKey:CPObservedObjectKey],
+            valueKeyPath = [contentValuesBindingInfo objectForKey:CPObservedKeyPathKey],
+            dotIndex = valueKeyPath ? valueKeyPath.lastIndexOf(".") : CPNotFound,
+            binding = [CPBinder getBinding:"contentValues" forObject:self];
+
+            CPLog("Value key path %@", valueKeyPath);
+//////////
+
+        for (var i = 0; i < numberOfItems; i++)
+        {
+            var menuItem = [[self menu] itemAtIndex:i],
+                object = [arrayController objectAtIndex:i],
+                title;
+
+            if (!valueKeyPath)
+                title = [object description];
+            else
+            {
+/////////
+                if (dotIndex === CPNotFound)
+                {
+                    title = [[valueDestination valueForKeyPath:valueKeyPath] objectAtIndex:i];
+                }
+                else
+                {
+                    var firstPart = valueKeyPath.substring(0, dotIndex),
+                        secondPart = valueKeyPath.substring(dotIndex + 1),
+                        firstValue = [valueDestination valueForKeyPath:firstPart];
+
+                    if ([firstValue isKindOfClass:CPArray])
+                    {
+                        title = [[firstValue objectAtIndex:i] valueForKeyPath:secondPart];
+                    }
+                    else
+                    {
+                        title = [[firstValue valueForKeyPath:secondPart] objectAtIndex:i];
+                    }
+                }
+                title = [binding transformValue:title withOptions:[contentValuesBindingInfo objectForKey:CPOptionsKey]];
+/////////
+            }
+
+            [menuItem setTitle:title];
+            [menuItem setRepresentedObject:object];
+            [menuItem setTag:0];
+
+            if (object === oldSelectedObject)
+                [self selectItem:menuItem];
+        }
+    }
+}
+
+@end
+
+
+@implementation CPPopUpContentBinder: CPBinder
+{
+
+}
+
+- (void)setValueFor:(CPString)aBinding
+{
+    [_source reloadMenuItems];
 }
 
 @end
